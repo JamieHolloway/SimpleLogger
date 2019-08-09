@@ -22,16 +22,18 @@ namespace TestSimpleLogger
 
             //log = SimpleLogger.GetInstance;
             //log.InitOptions(eventSource: "TestSimpleLogger");
+
             //log.WriteLine("test3");
             //log.Close();
 
             log.InitOptions(eventSource: "TestSimpleLogger", logFolder: @"%systemdrive%\PutLogsHere", logFile: "TestLogFile");
             try
             {
-                string temp = null;
+                //string temp = null;
                 //var temp2 = temp.ToCharArray();
 
-                Test2();
+                //Test2();
+                log.WriteLine("testing write to event log", writeToEventLog: true);
             }
             catch (System.Exception e)
             {
@@ -39,10 +41,9 @@ namespace TestSimpleLogger
             }
             finally
             {
-                log.Close();
+                log.Close(waitBeforeConsoleClose: true, waitSecondsToClose: 5);
             }
 
-            Console.ReadLine();
         }
 
         private static void Test2()

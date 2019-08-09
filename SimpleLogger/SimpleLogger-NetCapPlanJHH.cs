@@ -4,27 +4,28 @@ using System.IO;
 using System.Security;
 using System.Text;
 using System.Threading;
+
 using System.Windows.Forms;
 
 namespace Utilities
 {
     public sealed class SimpleLogger
     {
-        private readonly DateTime dt;
-        private StreamWriter log;
-        private EventLog eventLog;
-        private string eventSource;
-        private string fullLogFileName;
+        private readonly DateTime _dt;
+        private StreamWriter _log;
+        private EventLog _eventLog;
+        private string _eventSource;
+        private string _fullLogFileName;
         private static readonly object LockObject = new object();
         private static readonly object LockColorObject = new object();
-        private static readonly StringBuilder Sb = new StringBuilder();
+        private static readonly StringBuilder _sb = new StringBuilder();
         private static readonly Lazy<SimpleLogger> Lazy = new Lazy<SimpleLogger>(() => new SimpleLogger());
         public static SimpleLogger GetInstance => Lazy.Value;
 
         private SimpleLogger()
         {
             if (Environment.UserInteractive) SetConsole.StandardConfig();
-            dt = DateTime.Now;
+            _dt = DateTime.Now;
         }
         public void InitOptions(string eventSource = null, string logFolder = @"", string logFile = null)
         {
@@ -33,16 +34,16 @@ namespace Utilities
                 if (logFile != null)
                 {
                     var logPath = Environment.ExpandEnvironmentVariables(logFolder);
-                    if (logFolder != "") Directory.CreateDirectory(logPath);
-                    fullLogFileName = Path.Combine(logPath, DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + logFile + ".log");
-                    log = new StreamWriter(fullLogFileName);
-                    log.Flush();
+                    if (logFolder != "") System.IO.Directory.CreateDirectory(logPath);
+                    _fullLogFileName = Path.Combine(logPath, DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + logFile + ".log");
+                    _log = new StreamWriter(_fullLogFileName);
+                    _log.Flush();
                 }
-                this.eventSource = eventSource;
+                _eventSource = eventSource;
                 if (eventSource != null)
                 {
-                    eventLog = new EventLog();
-                    if (!EventLog.SourceExists(this.eventSource)) EventLog.CreateEventSource(this.eventSource, this.eventSource); 
+                    _eventLog = new EventLog();
+                    if (!EventLog.SourceExists(_eventSource)) EventLog.CreateEventSource(_eventSource, _eventSource); 
                 }
             }
             catch (SecurityException e)
@@ -66,7 +67,7 @@ namespace Utilities
         {
             WriteEventLog(message, eventLogLevel, eventId);
 
-            if (log != null) log.Write(message);
+            if (_log != null) _log.Write(message);
 
             lock (LockColorObject)
             {
@@ -77,15 +78,15 @@ namespace Utilities
         }
         private void WriteEventLog(string message, EventLogEntryType eventLogLevel = EventLogEntryType.Error, int eventId = 1000)
         {
-            if (eventLog == null) return;
-            eventLog.Source = eventSource;
-            eventLog.WriteEntry("Application run log file: " + fullLogFileName + Environment.NewLine + message, eventLogLevel, eventId);
+            if (_eventLog == null) return;
+            _eventLog.Source = _eventSource;
+            _eventLog.WriteEntry("Application run log file: " + _fullLogFileName + Environment.NewLine + message, eventLogLevel, eventId);
         }
         public void WriteWarningLine(string message,EventLogEntryType eventLogLevel = EventLogEntryType.Warning,  int eventId = 500)
         {
             WriteEventLog(message, eventLogLevel, eventId);
 
-            log?.Write(message);
+            if (_log != null) _log.Write(message);
 
             lock (LockColorObject)
             {
@@ -94,14 +95,12 @@ namespace Utilities
                 Console.ForegroundColor = ConsoleColor.Green;
             }
         }
-        public void WriteLine(string message, bool writeToEventLog = false, EventLogEntryType eventLogLevel = EventLogEntryType.Information, int eventId = 100)
+        public void WriteLine(string message)
         {
-            if (writeToEventLog) WriteEventLog(message, eventLogLevel, eventId);
-
             lock (LockObject)
             {
                 var messageStr = GetExecutionInfo() + message;
-                log?.WriteLine(messageStr);
+                if (_log != null) _log.WriteLine(messageStr);
                 Console.WriteLine(messageStr);
             }
         }
@@ -112,30 +111,30 @@ namespace Utilities
                 Console.Write(message);
             }
         }
-        public void WriteLine(bool writeToEventLog = false, EventLogEntryType eventLogLevel = EventLogEntryType.Information, int eventId = 100)
+        public void WriteLine()
         {
             WriteLine("");
         }
-        public void WriteException(Exception e, string message = "", bool stackTrace = false)
+        public void WriteException(System.Exception e, string message = "", bool stackTrace = false)
         {
-            lock (Sb)
+            lock (_sb)
             {
-                Sb.Clear();
-                Sb.AppendLine(GetExecutionInfo() + " " + message + Environment.NewLine + "Exception was: " + e.Message);
-                if (e.InnerException != null) { Sb.AppendLine("InnerException was: " + e.InnerException.Message); }
-                Sb.AppendLine("GetBaseException().Message was: " + e.GetBaseException().Message);
-                if (stackTrace) Sb.AppendLine("StackTrace: " + e.StackTrace); 
-                WriteErrorLine(Sb.ToString());
+                _sb.Clear();
+                _sb.AppendLine(GetExecutionInfo() + " " + message + Environment.NewLine + "Exception was: " + e.Message);
+                if (e.InnerException != null) { _sb.AppendLine("InnerException was: " + e.InnerException.Message); }
+                _sb.AppendLine("GetBaseException().Message was: " + e.GetBaseException().Message);
+                if (stackTrace) _sb.AppendLine("StackTrace: " + e.StackTrace); 
+                WriteErrorLine(_sb.ToString());
             }
         }
         public void Close(bool waitBeforeConsoleClose = true, int waitSecondsToClose = 0)
         {
-            var message = "SimpleLogger closed.  Execution time was " + (DateTime.Now - dt);
-            eventLog?.WriteEntry(GetExecutionInfo() + message, EventLogEntryType.Information, 15);
+            var message = "SimpleLogger closed.  Execution time was " + (DateTime.Now - _dt);
+            if (_eventLog != null) _eventLog.WriteEntry(GetExecutionInfo() + message, EventLogEntryType.Information, 15);
             WriteLine(message);
-            log?.Close();
+            if (_log != null) _log.Close();
             if (waitBeforeConsoleClose) Console.ReadLine();
-            else Thread.Sleep(waitSecondsToClose * 1000);
+            else System.Threading.Thread.Sleep(waitSecondsToClose * 1000);
         }
         private static string GetExecutionInfo()
         {
@@ -148,11 +147,11 @@ namespace Utilities
         {
             try
             {
-                Console.BufferHeight = short.MaxValue - 1;
-                Console.BufferWidth = 180;
-                Console.WindowHeight = 50;
-                Console.WindowWidth = 180;
-                Console.ForegroundColor = ConsoleColor.Green;
+            Console.BufferHeight = Int16.MaxValue - 1;
+            Console.BufferWidth = 180;
+            Console.WindowHeight = 50;
+            Console.WindowWidth = 180;
+            Console.ForegroundColor = ConsoleColor.Green;
             }
             catch (Exception)
             {
